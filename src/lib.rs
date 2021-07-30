@@ -13,6 +13,15 @@ impl From<Scheme> for Port {
     }
 }
 
+impl ToString for Scheme {
+    fn to_string(&self) -> String {
+        match self {
+            Scheme::Http => String::from("http"),
+            Scheme::Https => String::from("https"),
+        }
+    }
+}
+
 #[cfg(test)]
 mod test_scheme {
     use crate::{Port, Scheme};
@@ -22,6 +31,12 @@ mod test_scheme {
         let scheme = Scheme::Http;
         let port: Port = scheme.into();
         assert_eq!(port.0, 80);
+    }
+
+    #[test]
+    fn scheme_to_string() {
+        let scheme = Scheme::Http;
+        assert_eq!(scheme.to_string(), "http");
     }
 }
 
@@ -43,6 +58,12 @@ impl From<Port> for Scheme {
     }
 }
 
+impl ToString for Port {
+    fn to_string(&self) -> String {
+        self.0.to_string()
+    }
+}
+
 #[cfg(test)]
 mod test_port {
     use crate::{Port, Scheme};
@@ -58,5 +79,11 @@ mod test_port {
         let port = Port::new(80);
         let scheme: Scheme = port.into();
         assert_eq!(scheme, Scheme::Http);
+    }
+
+    #[test]
+    fn port_to_string() {
+        let port = Port::new(80);
+        assert_eq!(port.to_string(), "80");
     }
 }
