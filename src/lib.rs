@@ -2,13 +2,15 @@
 pub enum Scheme {
     Http,
     Https,
+    Scheme(String),
 }
 
 impl From<Scheme> for Port {
     fn from(scheme: Scheme) -> Port {
         match scheme {
-            Scheme::Http => Port(80),
-            Scheme::Https => Port(443),
+            Scheme::Http => Port::Http,
+            Scheme::Https => Port::Https,
+            _ => panic!(""),
         }
     }
 }
@@ -18,6 +20,7 @@ impl ToString for Scheme {
         match self {
             Scheme::Http => String::from("http"),
             Scheme::Https => String::from("https"),
+            Scheme::Scheme(scheme) => scheme.clone(),
         }
     }
 }
@@ -30,7 +33,7 @@ mod test_scheme {
     fn scheme_to_port() {
         let scheme = Scheme::Http;
         let port: Port = scheme.into();
-        assert_eq!(port.0, 80);
+        assert_eq!(port, Port::Http);
     }
 
     #[test]
@@ -40,27 +43,30 @@ mod test_scheme {
     }
 }
 
-pub struct Port(usize);
-
-impl Port {
-    pub fn new(port: usize) -> Self {
-        Port(port)
-    }
+#[derive(Debug, PartialEq)]
+pub enum Port {
+    Http,
+    Https,
+    Port(usize),
 }
 
 impl From<Port> for Scheme {
     fn from(port: Port) -> Scheme {
-        match port.0 {
-            80 => Scheme::Http,
-            443 => Scheme::Https,
-            _ => panic!("cast port {} to scheme", port.0),
+        match port {
+            Port::Http => Scheme::Http,
+            Port::Https => Scheme::Https,
+            _ => panic!("cast port {:?} to scheme", port),
         }
     }
 }
 
 impl ToString for Port {
     fn to_string(&self) -> String {
-        self.0.to_string()
+        match self {
+            Port::Http => String::from("80"),
+            Port::Https => String::from("443"),
+            Port::Port(port) => port.clone().to_string(),
+        }
     }
 }
 
@@ -69,21 +75,15 @@ mod test_port {
     use crate::{Port, Scheme};
 
     #[test]
-    fn new_port() {
-        let port = Port::new(80);
-        assert_eq!(port.0, 80);
-    }
-
-    #[test]
     fn port_to_scheme() {
-        let port = Port::new(80);
+        let port = Port::Http;
         let scheme: Scheme = port.into();
         assert_eq!(scheme, Scheme::Http);
     }
 
     #[test]
     fn port_to_string() {
-        let port = Port::new(80);
+        let port = Port::Http;
         assert_eq!(port.to_string(), "80");
     }
 }
