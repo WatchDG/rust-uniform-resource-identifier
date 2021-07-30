@@ -1,0 +1,18 @@
+[package]
+name = "uniform-resource-identifier"
+version = "0.0.1"
+authors = ["WatchDG <baranov@w3m.co>"]
+license = "MIT OR Apache-2.0"
+description = "uniform resource identifier"
+homepage = "https://github.com/WatchDG/rust-uniform-resource-identifier"
+documentation = "https://docs.rs/uniform-resource-identifier"
+repository = "https://github.com/WatchDG/rust-uniform-resource-identifier"
+readme = "README.md"
+edition = "2018"
+exclude = [
+    ".github/**/*",
+    "src/main.rs",
+    ".gitignore"
+]
+
+[dependencies]
