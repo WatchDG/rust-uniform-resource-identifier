@@ -1,4 +1,6 @@
 pub mod scheme;
+pub mod uri;
+
 pub use scheme::Scheme;
 
 #[derive(Debug, PartialEq)]
