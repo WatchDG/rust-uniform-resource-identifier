@@ -1,6 +1,6 @@
 [package]
 name = "uniform-resource-identifier"
-version = "0.0.8"
+version = "0.0.9"
 authors = ["WatchDG <baranov@w3m.co>"]
 license = "MIT OR Apache-2.0"
 description = "uniform resource identifier"
