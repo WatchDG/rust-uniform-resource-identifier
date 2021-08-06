@@ -1,6 +1,6 @@
 use crate::Scheme;
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum Port {
     Http,
     Https,

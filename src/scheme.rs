@@ -109,9 +109,37 @@ pub fn get_scheme(value: &[u8]) -> Result<Scheme, SchemeError> {
     Err(SchemeError::InvalidScheme)
 }
 
+macro_rules! char_colon {
+    () => {
+        0x3a
+    };
+}
+
+pub fn parse_scheme(
+    input: &[u8],
+    start: &mut usize,
+    end: &usize,
+) -> Result<Scheme, Box<dyn Error>> {
+    let mut index = *start;
+
+    while index < *end && input[index] != char_colon!() {
+        index += 1;
+    }
+
+    if input[index] == char_colon!() {
+        index -= 1;
+    }
+
+    let s = get_scheme(&input[*start..=index])?;
+
+    *start = index + 2;
+
+    Ok(s)
+}
+
 #[cfg(test)]
 mod test_scheme {
-    use crate::scheme::get_scheme;
+    use crate::scheme::{get_scheme, parse_scheme};
     use crate::{Port, Scheme};
 
     #[test]
@@ -125,5 +153,31 @@ mod test_scheme {
     fn scheme_to_string() {
         let scheme = Scheme::Http;
         assert_eq!(scheme.to_string(), "http");
+    }
+
+    #[test]
+    fn test_parse_scheme_1() {
+        use parse_scheme;
+
+        let s = b"https";
+        let l = s.len() - 1;
+        let mut c = 0;
+        let scheme = parse_scheme(s, &mut c, &l).unwrap();
+
+        assert_eq!(scheme, Scheme::Https);
+        assert_eq!(c, 5);
+    }
+
+    #[test]
+    fn test_parse_scheme_2() {
+        use parse_scheme;
+
+        let s = b"https://";
+        let l = s.len() - 1;
+        let mut c = 0;
+        let scheme = parse_scheme(s, &mut c, &l).unwrap();
+
+        assert_eq!(scheme, Scheme::Https);
+        assert_eq!(c, 5);
     }
 }
