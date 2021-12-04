@@ -2,12 +2,15 @@ use std::error::Error;
 
 pub mod host;
 pub mod port;
+pub mod userinfo;
 
 pub use host::Host;
 pub use port::Port;
+pub use userinfo::Userinfo;
 
 #[derive(Debug, Clone)]
 pub struct Authority {
+    pub userinfo: Option<Userinfo>,
     pub host: Host,
     pub port: Option<Port>,
 }
@@ -28,7 +31,10 @@ pub fn parse_authority(
     start: &mut usize,
     end: &usize,
 ) -> Result<Authority, Box<dyn Error>> {
+    let userinfo = userinfo::parse_userinfo(input, start, end)?;
+
     let mut e_idx = *start;
+
     while e_idx < *end && input[e_idx] != char_slash!() {
         e_idx += 1;
     }
@@ -54,5 +60,9 @@ pub fn parse_authority(
 
     *start = e_idx;
 
-    Ok(Authority { host, port })
+    Ok(Authority {
+        userinfo,
+        host,
+        port,
+    })
 }
