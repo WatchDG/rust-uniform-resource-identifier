@@ -25,6 +25,7 @@ pub enum Scheme {
     Https,
     Ws,
     Wss,
+    File,
     Scheme(String),
 }
 
@@ -45,6 +46,7 @@ impl ToString for Scheme {
             Scheme::Https => String::from("https"),
             Scheme::Ws => String::from("ws"),
             Scheme::Wss => String::from("wss"),
+            Scheme::File => String::from("file"),
             Scheme::Scheme(scheme) => scheme.clone(),
         }
     }
@@ -88,6 +90,7 @@ lazy_static! {
         add_scheme(&mut chars, b"https", Scheme::Https);
         add_scheme(&mut chars, b"ws", Scheme::Ws);
         add_scheme(&mut chars, b"wss", Scheme::Wss);
+        add_scheme(&mut chars, b"file", Scheme::File);
         chars
     };
 }
@@ -122,8 +125,11 @@ pub fn parse_scheme(
 ) -> Result<Scheme, Box<dyn Error>> {
     let mut index = *start;
 
-    while index < *end && input[index] != char_colon!() {
-        index += 1;
+    while index < *end
+        && ((input[index] >= 0x41 && input[index] <= 0x5a)
+            || (input[index] >= 0x61 && input[index] <= 0x7a))
+    {
+        index += 1
     }
 
     if input[index] == char_colon!() {
@@ -165,7 +171,7 @@ mod test_scheme {
         let scheme = parse_scheme(s, &mut c, &l).unwrap();
 
         assert_eq!(scheme, Scheme::Https);
-        assert_eq!(c, 5);
+        assert_eq!(c, 6);
     }
 
     #[test]
@@ -178,6 +184,6 @@ mod test_scheme {
         let scheme = parse_scheme(s, &mut c, &l).unwrap();
 
         assert_eq!(scheme, Scheme::Https);
-        assert_eq!(c, 5);
+        assert_eq!(c, 6);
     }
 }
