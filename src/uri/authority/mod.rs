@@ -58,7 +58,7 @@ pub fn parse_authority(
         (h, None)
     };
 
-    *start = e_idx;
+    *start = e_idx + 1;
 
     Ok(Authority {
         userinfo,

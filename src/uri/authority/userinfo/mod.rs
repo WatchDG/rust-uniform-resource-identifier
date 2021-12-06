@@ -1,24 +1,11 @@
 use std::error::Error;
 
+use crate::utils::while_pct_encoded;
+use crate::{is_sub_delims, is_unreserved};
+
 #[derive(Debug, Clone, PartialEq)]
 pub enum Userinfo {
     Userinfo(String),
-}
-
-macro_rules! is_alpha {
-    ($char: expr) => {
-        (($char >= 0x41 && $char <= 0x5a) || ($char >= 0x61 && $char <= 0x7a))
-    };
-}
-
-macro_rules! is_sub_delims {
-    ($char: expr) => {
-        ($char == 0x21
-            || $char == 0x24
-            || ($char >= 0x26 && $char <= 0x2c)
-            || $char == 0x3b
-            || $char == 0x3d)
-    };
 }
 
 pub fn parse_userinfo(
@@ -29,7 +16,10 @@ pub fn parse_userinfo(
     let mut index = *start;
 
     while index < *end
-        && (is_alpha!(input[index]) || is_sub_delims!(input[index]) || input[index] == 0x3a)
+        && (is_unreserved!(input[index])
+            || while_pct_encoded(input, &mut index, end)?
+            || is_sub_delims!(input[index])
+            || input[index] == 0x3a)
     {
         index += 1;
     }

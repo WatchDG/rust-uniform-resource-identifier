@@ -1,31 +1,26 @@
 use std::error::Error;
 
-#[derive(Debug, PartialEq)]
+use crate::is_unreserved;
+
+#[derive(Debug, Clone, PartialEq)]
 pub enum Path {
     Path(String),
-}
-
-macro_rules! char_question {
-    () => {
-        0x3f
-    };
 }
 
 pub fn parse_path(input: &[u8], start: &mut usize, end: &usize) -> Result<Path, Box<dyn Error>> {
     let mut index = *start;
 
-    while index < *end && input[index] != char_question!() {
+    while index <= *end && input[index] == 0x2f {
         index += 1;
+        while index <= *end && is_unreserved!(input[index]) {
+            index += 1;
+        }
     }
 
-    if input[index] == char_question!() {
-        index -= 1;
-    }
-
-    let s = String::from_utf8(input[*start..=index].to_vec())?;
+    let s = String::from_utf8(input[*start..index].to_vec())?;
     let p = Path::Path(s);
 
-    *start = index + 1;
+    *start = index;
 
     Ok(p)
 }
@@ -33,7 +28,7 @@ pub fn parse_path(input: &[u8], start: &mut usize, end: &usize) -> Result<Path, 
 #[cfg(test)]
 mod test_path {
 
-    use crate::path::{parse_path, Path};
+    use crate::uri::path::{parse_path, Path};
 
     #[test]
     fn test_parse_path_1() {

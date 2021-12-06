@@ -145,7 +145,7 @@ pub fn parse_scheme(
 
 #[cfg(test)]
 mod test_scheme {
-    use crate::scheme::{get_scheme, parse_scheme};
+    use crate::uri::scheme::parse_scheme;
     use crate::{Port, Scheme};
 
     #[test]

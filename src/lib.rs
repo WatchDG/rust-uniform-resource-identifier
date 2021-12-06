@@ -1,20 +1,8 @@
-pub mod authority;
-pub mod path;
-pub mod scheme;
+mod macros;
+mod utils;
+
 pub mod uri;
 
-pub use authority::Host;
-pub use authority::Port;
-pub use path::Path;
-pub use scheme::Scheme;
-
-macro_rules! char_colon {
-    () => {
-        0x3a
-    };
-}
-macro_rules! char_slash {
-    () => {
-        0x2f
-    };
-}
+pub use uri::authority::Port;
+pub use uri::path::Path;
+pub use uri::scheme::Scheme;
