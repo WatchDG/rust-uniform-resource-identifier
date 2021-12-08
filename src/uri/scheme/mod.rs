@@ -27,7 +27,6 @@ pub enum Scheme {
     Wss,
     File,
     Mailto,
-    Scheme(String),
 }
 
 impl From<Scheme> for Port {
@@ -49,7 +48,6 @@ impl ToString for Scheme {
             Scheme::Wss => String::from("wss"),
             Scheme::File => String::from("file"),
             Scheme::Mailto => String::from("mailto"),
-            Scheme::Scheme(scheme) => scheme.clone(),
         }
     }
 }
@@ -122,11 +120,8 @@ pub fn parse_scheme(
 ) -> Result<Scheme, Box<dyn Error>> {
     let mut index = *start;
 
-    while index < *end
-        && ((input[index] >= 0x41 && input[index] <= 0x5a)
-            || (input[index] >= 0x61 && input[index] <= 0x7a))
-    {
-        index += 1
+    while index < *end && input[index] != 0x3a {
+        index += 1;
     }
 
     if input[index] != 0x3a {
