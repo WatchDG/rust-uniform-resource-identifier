@@ -32,3 +32,20 @@ pub fn parse_userinfo(
         None
     })
 }
+
+#[cfg(test)]
+mod test {
+    use crate::uri::authority::userinfo::{parse_userinfo, Userinfo};
+
+    #[test]
+    fn parse_userinfo_1() {
+        let string = b"user:password@";
+        let end = string.len() - 1;
+        let mut cursor = 0;
+
+        let userinfo = parse_userinfo(string, &mut cursor, &end).unwrap();
+
+        assert_eq!(userinfo, Some(Userinfo::Userinfo("user:password".into())));
+        assert_eq!(cursor, 14);
+    }
+}
