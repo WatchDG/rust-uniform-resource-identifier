@@ -24,12 +24,30 @@ pub fn parse_fragment(
         {
             index += 1;
         }
-        let f = Fragment::Fragment(String::from_utf8(input[*start + 1..index].to_vec())?);
+
+        let fragment = Fragment::Fragment(String::from_utf8(input[*start + 1..index].to_vec())?);
+
         *start = index;
-        Some(f)
+
+        Some(fragment)
     } else {
         None
     };
 
     Ok(fragment)
+}
+
+#[cfg(test)]
+mod test_fragment {
+    use crate::uri::fragment::{parse_fragment, Fragment};
+
+    #[test]
+    fn fragment() {
+        {
+            let s = b"#test";
+            let l = s.len() - 1;
+            let f = parse_fragment(s, &mut 0, &l).unwrap();
+            assert_eq!(f, Some(Fragment::Fragment(String::from("test"))));
+        }
+    }
 }

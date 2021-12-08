@@ -26,6 +26,7 @@ pub enum Scheme {
     Ws,
     Wss,
     File,
+    Mailto,
     Scheme(String),
 }
 
@@ -47,6 +48,7 @@ impl ToString for Scheme {
             Scheme::Ws => String::from("ws"),
             Scheme::Wss => String::from("wss"),
             Scheme::File => String::from("file"),
+            Scheme::Mailto => String::from("mailto"),
             Scheme::Scheme(scheme) => scheme.clone(),
         }
     }
@@ -91,6 +93,7 @@ lazy_static! {
         add_scheme(&mut chars, b"ws", Scheme::Ws);
         add_scheme(&mut chars, b"wss", Scheme::Wss);
         add_scheme(&mut chars, b"file", Scheme::File);
+        add_scheme(&mut chars, b"mailto", Scheme::Mailto);
         chars
     };
 }
@@ -112,12 +115,6 @@ pub fn get_scheme(value: &[u8]) -> Result<Scheme, SchemeError> {
     Err(SchemeError::InvalidScheme)
 }
 
-macro_rules! char_colon {
-    () => {
-        0x3a
-    };
-}
-
 pub fn parse_scheme(
     input: &[u8],
     start: &mut usize,
@@ -132,15 +129,15 @@ pub fn parse_scheme(
         index += 1
     }
 
-    if input[index] == char_colon!() {
-        index -= 1;
+    if input[index] != 0x3a {
+        return Err(SchemeError::InvalidScheme.into());
     }
 
-    let s = get_scheme(&input[*start..=index])?;
+    let scheme = get_scheme(&input[*start..index])?;
 
-    *start = index + 2;
+    *start = index + 1;
 
-    Ok(s)
+    Ok(scheme)
 }
 
 #[cfg(test)]
@@ -162,28 +159,35 @@ mod test_scheme {
     }
 
     #[test]
-    fn test_parse_scheme_1() {
-        use parse_scheme;
-
-        let s = b"https";
-        let l = s.len() - 1;
-        let mut c = 0;
-        let scheme = parse_scheme(s, &mut c, &l).unwrap();
+    fn parse_scheme_1() {
+        let string = b"https:";
+        let end = string.len() - 1;
+        let mut cursor = 0;
+        let scheme = parse_scheme(string, &mut cursor, &end).unwrap();
 
         assert_eq!(scheme, Scheme::Https);
-        assert_eq!(c, 6);
+        assert_eq!(cursor, 6);
     }
 
     #[test]
-    fn test_parse_scheme_2() {
-        use parse_scheme;
-
-        let s = b"https://";
-        let l = s.len() - 1;
-        let mut c = 0;
-        let scheme = parse_scheme(s, &mut c, &l).unwrap();
+    fn parse_scheme_2() {
+        let string = b"https://example.com";
+        let end = string.len() - 1;
+        let mut cursor = 0;
+        let scheme = parse_scheme(string, &mut cursor, &end).unwrap();
 
         assert_eq!(scheme, Scheme::Https);
-        assert_eq!(c, 6);
+        assert_eq!(cursor, 6);
+    }
+
+    #[test]
+    fn parse_scheme_3() {
+        let string = b"mailto:someone@example.com";
+        let end = string.len() - 1;
+        let mut cursor = 0;
+        let scheme = parse_scheme(string, &mut cursor, &end).unwrap();
+
+        assert_eq!(scheme, Scheme::Mailto);
+        assert_eq!(cursor, 7);
     }
 }

@@ -5,6 +5,7 @@ use crate::is_unreserved;
 #[derive(Debug, Clone, PartialEq)]
 pub enum Path {
     Path(String),
+    PathEmpty,
 }
 
 pub fn parse_path(input: &[u8], start: &mut usize, end: &usize) -> Result<Path, Box<dyn Error>> {
