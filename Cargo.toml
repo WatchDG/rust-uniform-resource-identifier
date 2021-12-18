@@ -23,5 +23,5 @@ lazy_static = "1.4.0"
 criterion = "0.3"
 
 [[bench]]
-name = "parse_scheme"
+name = "parse_authority"
 harness = false

@@ -7,12 +7,14 @@ use crate::Port;
 #[derive(Debug, Clone)]
 pub enum SchemeError {
     InvalidScheme,
+    UnknownScheme,
 }
 
 impl fmt::Display for SchemeError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             SchemeError::InvalidScheme => write!(f, "Invalid scheme."),
+            SchemeError::UnknownScheme => write!(f, "Unknown scheme."),
         }
     }
 }
@@ -101,16 +103,16 @@ pub fn get_scheme(value: &[u8]) -> Result<Scheme, SchemeError> {
     let end_idx = value.len() - 1;
     for (idx, code) in value.to_ascii_lowercase().iter().enumerate() {
         let search_result = chars.binary_search_by(|header_char| (header_char.code).cmp(code));
-        let index = search_result.map_err(|_| SchemeError::InvalidScheme)?;
+        let index = search_result.map_err(|_| SchemeError::UnknownScheme)?;
         if idx == end_idx {
             return chars[index]
                 .scheme
                 .clone()
-                .ok_or(SchemeError::InvalidScheme);
+                .ok_or(SchemeError::UnknownScheme);
         }
         chars = &chars[index].next_char;
     }
-    Err(SchemeError::InvalidScheme)
+    Err(SchemeError::UnknownScheme)
 }
 
 pub fn parse_scheme(
@@ -154,10 +156,29 @@ mod test_scheme {
     }
 
     #[test]
-    fn parse_scheme_1() {
-        let string = b"https:";
+    #[should_panic]
+    fn panic_parse_scheme_1() {
+        let string = b"http";
         let end = string.len() - 1;
         let mut cursor = 0;
+        parse_scheme(string, &mut cursor, &end).unwrap();
+    }
+
+    #[test]
+    #[should_panic(expected = "UnknownScheme")]
+    fn panic_parse_scheme_2() {
+        let string = b"abc:";
+        let end = string.len() - 1;
+        let mut cursor = 0;
+        parse_scheme(string, &mut cursor, &end).unwrap();
+    }
+
+    #[test]
+    fn parse_scheme_1() {
+        let string = b"https:";
+        let mut cursor = 0;
+        let end = string.len() - 1;
+
         let scheme = parse_scheme(string, &mut cursor, &end).unwrap();
 
         assert_eq!(scheme, Scheme::Https);
@@ -167,8 +188,9 @@ mod test_scheme {
     #[test]
     fn parse_scheme_2() {
         let string = b"https://example.com";
-        let end = string.len() - 1;
         let mut cursor = 0;
+        let end = string.len() - 1;
+
         let scheme = parse_scheme(string, &mut cursor, &end).unwrap();
 
         assert_eq!(scheme, Scheme::Https);
@@ -178,8 +200,9 @@ mod test_scheme {
     #[test]
     fn parse_scheme_3() {
         let string = b"mailto:someone@example.com";
-        let end = string.len() - 1;
         let mut cursor = 0;
+        let end = string.len() - 1;
+
         let scheme = parse_scheme(string, &mut cursor, &end).unwrap();
 
         assert_eq!(scheme, Scheme::Mailto);

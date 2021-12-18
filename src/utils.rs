@@ -57,3 +57,146 @@ pub fn while_pchar(input: &[u8], start: &mut usize, end: &usize) -> Result<bool,
 
     Ok(flag)
 }
+
+pub fn while_ip_v4_address(
+    input: &[u8],
+    start: &mut usize,
+    end: &usize,
+) -> Result<bool, Box<dyn Error>> {
+    if *end - *start < 6 || *end - *start > 14 {
+        return Ok(false);
+    }
+
+    let mut index = *start;
+    let mut dec_octet_count = 0;
+    let mut dec_octet_index = index;
+
+    while dec_octet_count < 4 {
+        while dec_octet_index <= *end
+            && dec_octet_index - index < 4
+            && input[dec_octet_index] != 0x2e
+            && input[dec_octet_index] >= 0x30
+            && input[dec_octet_index] <= 0x39
+        {
+            dec_octet_index += 1;
+        }
+
+        match dec_octet_index - index {
+            3 => {
+                if !((input[index] == 0x31
+                    && input[index + 1] >= 0x30
+                    && input[index + 1] <= 0x39
+                    && input[index + 2] >= 0x30
+                    && input[index + 2] <= 0x39)
+                    || (input[index] == 0x32
+                        && input[index + 1] >= 0x30
+                        && input[index + 1] <= 0x35
+                        && input[index + 2] >= 0x30
+                        && input[index + 2] <= 0x35))
+                {
+                    return Ok(false);
+                }
+            }
+            2 => {
+                if input[index] < 0x31
+                    || input[index] > 0x39
+                    || input[index + 1] < 0x30
+                    || input[index + 1] > 0x39
+                {
+                    return Ok(false);
+                }
+            }
+            1 => {
+                if input[index] < 0x30 || input[index] > 0x39 {
+                    return Ok(false);
+                }
+            }
+            _ => return Ok(false),
+        }
+
+        dec_octet_index += 1;
+        index = dec_octet_index;
+        dec_octet_count += 1;
+    }
+
+    *start = dec_octet_index;
+
+    Ok(true)
+}
+
+#[cfg(test)]
+mod test {
+    use crate::utils::while_ip_v4_address;
+
+    #[test]
+    fn invalid_length_short() {
+        let string = b"0.0.0.";
+        let mut cursor = 0;
+        let end = string.len() - 1;
+        assert_eq!(
+            while_ip_v4_address(string, &mut cursor, &end).unwrap(),
+            false
+        );
+        assert_eq!(cursor, 0);
+    }
+
+    #[test]
+    fn invalid_length_long() {
+        let string = b"255.255.255.2550";
+        let mut cursor = 0;
+        let end = string.len() - 1;
+        assert_eq!(
+            while_ip_v4_address(string, &mut cursor, &end).unwrap(),
+            false
+        );
+        assert_eq!(cursor, 0);
+    }
+
+    #[test]
+    fn invalid_dec_octet_length_short() {
+        let string = b"255.255.255.";
+        let mut cursor = 0;
+        let end = string.len() - 1;
+        assert_eq!(
+            while_ip_v4_address(string, &mut cursor, &end).unwrap(),
+            false
+        );
+        assert_eq!(cursor, 0);
+    }
+
+    #[test]
+    fn invalid_dec_octet_length_long() {
+        let string = b"255.255.0.2555";
+        let mut cursor = 0;
+        let end = string.len() - 1;
+        assert_eq!(
+            while_ip_v4_address(string, &mut cursor, &end).unwrap(),
+            false
+        );
+        assert_eq!(cursor, 0);
+    }
+
+    #[test]
+    fn invalid_dec_octet_value() {
+        let string = b"255.255.255.256";
+        let mut cursor = 0;
+        let end = string.len() - 1;
+        assert_eq!(
+            while_ip_v4_address(string, &mut cursor, &end).unwrap(),
+            false
+        );
+        assert_eq!(cursor, 0);
+    }
+
+    #[test]
+    fn valid() {
+        let string = b"0.10.200.200:80";
+        let mut cursor = 0;
+        let end = string.len() - 1;
+        assert_eq!(
+            while_ip_v4_address(string, &mut cursor, &end).unwrap(),
+            true
+        );
+        // assert_eq!(cursor, 12);
+    }
+}
