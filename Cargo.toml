@@ -1,6 +1,6 @@
 [package]
 name = "uniform-resource-identifier"
-version = "0.0.12"
+version = "0.0.13"
 authors = ["WatchDG <baranov@w3m.co>"]
 license = "MIT OR Apache-2.0"
 description = "uniform resource identifier"
@@ -18,10 +18,3 @@ exclude = [
 [dependencies]
 bytes = "1.0.1"
 lazy_static = "1.4.0"
-
-[dev-dependencies]
-criterion = "0.3"
-
-[[bench]]
-name = "parse_authority"
-harness = false

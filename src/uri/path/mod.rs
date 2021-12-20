@@ -11,6 +11,7 @@ pub enum Path {
 pub fn parse_path(input: &[u8], start: &mut usize, end: &usize) -> Result<Path, Box<dyn Error>> {
     let mut index = *start;
 
+    
     while index <= *end && input[index] == 0x2f {
         index += 1;
         while index <= *end && is_unreserved!(input[index]) {
@@ -18,12 +19,12 @@ pub fn parse_path(input: &[u8], start: &mut usize, end: &usize) -> Result<Path, 
         }
     }
 
-    let s = String::from_utf8(input[*start..index].to_vec())?;
-    let p = Path::Path(s);
+    let string = String::from_utf8(input[*start..index].to_vec())?;
+    let path = Path::Path(string);
 
     *start = index;
 
-    Ok(p)
+    Ok(path)
 }
 
 #[cfg(test)]

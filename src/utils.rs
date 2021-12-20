@@ -125,7 +125,7 @@ pub fn while_ip_v4_address(
 }
 
 #[cfg(test)]
-mod test {
+mod test_while_ip_v4_address {
     use crate::utils::while_ip_v4_address;
 
     #[test]
@@ -199,4 +199,60 @@ mod test {
         );
         // assert_eq!(cursor, 12);
     }
+}
+
+pub fn while_number(input: &[u8], start: &mut usize, end: &usize) -> Result<bool, Box<dyn Error>> {
+    let mut index = *start;
+
+    if index > *end || input[index] < 0x31 || input[index] > 0x39 {
+        return Ok(false);
+    }
+
+    index += 1;
+
+    while index <= *end && input[index] >= 0x30 && input[index] <= 0x39 {
+        index += 1;
+    }
+
+    *start = index;
+
+    return Ok(true);
+}
+
+#[cfg(test)]
+mod test_while_number {
+    use crate::utils::while_number;
+
+    #[test]
+    fn valid() {
+        let string = b"80/";
+        let mut cursor = 0;
+        let end = string.len() - 1;
+
+        assert_eq!(while_number(string, &mut cursor, &end).unwrap(), true);
+        assert_eq!(cursor, 2);
+    }
+}
+
+pub fn while_reg_name(
+    input: &[u8],
+    start: &mut usize,
+    end: &usize,
+) -> Result<bool, Box<dyn Error>> {
+    let mut index = *start;
+
+    while index <= *end
+        && (is_unreserved!(input[index])
+            || while_pct_encoded(input, &mut index, end)?
+            || is_sub_delims!(input[index]))
+    {
+        index += 1;
+    }
+
+    Ok(if index != *start {
+        *start = index;
+        true
+    } else {
+        false
+    })
 }

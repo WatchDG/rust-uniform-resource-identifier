@@ -1,6 +1,6 @@
 use std::error::Error;
 
-use crate::utils::while_ip_v4_address;
+use crate::utils::{while_ip_v4_address, while_reg_name};
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Host {
@@ -13,7 +13,14 @@ pub fn parse_host(input: &[u8], start: &mut usize, end: &usize) -> Result<Host, 
 
     if while_ip_v4_address(input, &mut index, end)? {
         let string = String::from_utf8(input[*start..index - 1].to_vec())?;
+        *start = index;
         return Ok(Host::Ipv4Addr(string));
+    }
+
+    if while_reg_name(input, &mut index, end)? {
+        let string = String::from_utf8(input[*start..index].to_vec())?;
+        *start = index;
+        return Ok(Host::Host(string));
     }
 
     Ok(Host::Host("".into()))
