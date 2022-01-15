@@ -41,7 +41,25 @@ mod tests_query {
     use bytes::Bytes;
 
     #[test]
-    fn parse() {
+    fn test_bytes() {
+        let query = Query::from_bytes(Bytes::from_static(b"?name=ferret"));
+        assert_eq!(query.bytes(), Bytes::from_static(b"?name=ferret"));
+    }
+
+    #[test]
+    fn test_from_bytes() {
+        let query = Query::from_bytes(Bytes::from_static(b"?name=ferret"));
+        assert_eq!(query.origin, Bytes::from_static(b"?name=ferret"));
+    }
+
+    #[test]
+    fn test_from_slice() {
+        let query = Query::from_slice(b"?name=ferret");
+        assert_eq!(query.origin, Bytes::from_static(b"?name=ferret"));
+    }
+
+    #[test]
+    fn test_parse() {
         let string = "foo://example.com:8042/over/there?name=ferret#nose";
         let mut cursor = 33;
         let query = Query::parse(string.as_bytes(), &mut cursor, &string.len()).unwrap();
