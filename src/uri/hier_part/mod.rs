@@ -7,23 +7,25 @@ mod authority;
 use authority::Authority;
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct HierPart(Bytes);
+pub struct HierPart {
+    origin: Bytes,
+}
 
 impl HierPart {
     #[inline]
     pub fn bytes(&self) -> Bytes {
-        self.0.clone()
+        self.origin.clone()
     }
 
     #[inline]
     pub fn from_bytes(input: Bytes) -> Self {
-        Self(input)
+        Self { origin: input }
     }
 
     #[inline]
     pub fn from_slice(input: &[u8]) -> Self {
         let bytes = Bytes::copy_from_slice(input);
-        Self(bytes)
+        Self { origin: bytes }
     }
 
     pub fn parse(input: &[u8], start: &mut usize, end: &usize) -> Result<Self, UriError> {
@@ -41,6 +43,33 @@ impl HierPart {
 mod tests_hier_part {
     use crate::HierPart;
     use bytes::Bytes;
+
+    #[test]
+    fn test_bytes() {
+        let hier_part = HierPart::from_bytes(Bytes::from_static(b"//example.com:8042/over/there"));
+        assert_eq!(
+            hier_part.bytes(),
+            Bytes::from_static(b"//example.com:8042/over/there")
+        );
+    }
+
+    #[test]
+    fn test_from_bytes() {
+        let hier_part = HierPart::from_bytes(Bytes::from_static(b"//example.com:8042/over/there"));
+        assert_eq!(
+            hier_part.origin,
+            Bytes::from_static(b"//example.com:8042/over/there")
+        );
+    }
+
+    #[test]
+    fn test_from_slice() {
+        let hier_part = HierPart::from_slice(b"//example.com:8042/over/there");
+        assert_eq!(
+            hier_part.bytes(),
+            Bytes::from_static(b"//example.com:8042/over/there")
+        );
+    }
 
     #[test]
     fn test_parse() {
