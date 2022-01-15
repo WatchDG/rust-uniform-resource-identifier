@@ -11,7 +11,6 @@ pub enum Path {
 pub fn parse_path(input: &[u8], start: &mut usize, end: &usize) -> Result<Path, Box<dyn Error>> {
     let mut index = *start;
 
-    
     while index <= *end && input[index] == 0x2f {
         index += 1;
         while index <= *end && is_unreserved!(input[index]) {

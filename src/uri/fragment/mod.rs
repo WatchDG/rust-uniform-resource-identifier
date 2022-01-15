@@ -1,53 +1,34 @@
-use std::error::Error;
+use bytes::Bytes;
 
-use crate::utils::while_pchar;
+use crate::UriError;
 
 #[derive(Debug, Clone, PartialEq)]
-pub enum Fragment {
-    Fragment(String),
-}
+pub struct Fragment(Bytes);
 
-pub fn parse_fragment(
-    input: &[u8],
-    start: &mut usize,
-    end: &usize,
-) -> Result<Option<Fragment>, Box<dyn Error>> {
-    let mut index = *start;
+impl Fragment {
+    #[inline]
+    pub fn bytes(&self) -> Bytes {
+        self.0.clone()
+    }
 
-    let fragment = if input[index] == 0x23 {
-        index += 1;
+    #[inline]
+    pub fn from_slice(input: &[u8]) -> Self {
+        let bytes = Bytes::copy_from_slice(input);
+        Self(bytes)
+    }
 
-        while index <= *end
-            && (while_pchar(input, &mut index, end)?
-                || input[index] == 0x2f
-                || input[index] == 0x3f)
-        {
+    #[inline]
+    pub fn from_bytes(input: Bytes) -> Self {
+        Self(input)
+    }
+
+    pub fn parse(input: &[u8], start: &mut usize, end: &usize) -> Result<Self, UriError> {
+        let mut index = *start;
+        while index < *end {
             index += 1;
         }
-
-        let fragment = Fragment::Fragment(String::from_utf8(input[*start + 1..index].to_vec())?);
-
+        let value = Self::from_slice(&input[*start..index]);
         *start = index;
-
-        Some(fragment)
-    } else {
-        None
-    };
-
-    Ok(fragment)
-}
-
-#[cfg(test)]
-mod test_fragment {
-    use crate::uri::fragment::{parse_fragment, Fragment};
-
-    #[test]
-    fn fragment() {
-        {
-            let s = b"#test";
-            let l = s.len() - 1;
-            let f = parse_fragment(s, &mut 0, &l).unwrap();
-            assert_eq!(f, Some(Fragment::Fragment(String::from("test"))));
-        }
+        Ok(value)
     }
 }
