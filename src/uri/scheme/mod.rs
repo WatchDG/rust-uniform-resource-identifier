@@ -45,11 +45,29 @@ mod tests_scheme {
     use bytes::Bytes;
 
     #[test]
+    fn test_bytes() {
+        let scheme = Scheme::from_bytes(Bytes::from_static(b"foo:"));
+        assert_eq!(scheme.bytes(), Bytes::from_static(b"foo:"));
+    }
+
+    #[test]
+    fn test_from_bytes() {
+        let scheme = Scheme::from_bytes(Bytes::from_static(b"foo:"));
+        assert_eq!(scheme.origin, Bytes::from_static(b"foo:"));
+    }
+
+    #[test]
+    fn test_from_slice() {
+        let scheme = Scheme::from_slice(b"foo:");
+        assert_eq!(scheme.origin, Bytes::from_static(b"foo:"));
+    }
+
+    #[test]
     fn test_parse() {
         let string = "foo://example.com:8042/over/there?name=ferret#nose";
         let mut cursor = 0;
         let scheme = Scheme::parse(string.as_bytes(), &mut cursor, &string.len()).unwrap();
-        assert_eq!(scheme.bytes(), Bytes::from_static(b"foo:"));
+        assert_eq!(scheme.origin, Bytes::from_static(b"foo:"));
         assert_eq!(cursor, 4);
     }
 }

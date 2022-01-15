@@ -2,8 +2,8 @@ use bytes::Bytes;
 
 use crate::UriError;
 
-pub struct Authority{
-    origin: Bytes
+pub struct Authority {
+    origin: Bytes,
 }
 
 impl Authority {
@@ -23,7 +23,6 @@ impl Authority {
         Self { origin: bytes }
     }
 
-    
     pub fn parse(input: &[u8], start: &mut usize, end: &usize) -> Result<Self, UriError> {
         let mut index = *start;
         while index < *end && input[index] != 0x2f {
@@ -34,7 +33,6 @@ impl Authority {
         Ok(value)
     }
 }
-
 
 // use std::error::Error;
 
@@ -48,9 +46,9 @@ impl Authority {
 
 // #[derive(Debug, Clone, PartialEq)]
 // pub struct Authority {
-    // pub userinfo: Option<Userinfo>,
-    // pub host: Host,
-    // pub port: Option<Port>,
+// pub userinfo: Option<Userinfo>,
+// pub host: Host,
+// pub port: Option<Port>,
 // }
 
 // pub fn parse_authority(
