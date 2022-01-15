@@ -8,7 +8,7 @@ use authority::Authority;
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct HierPart {
-    origin: Bytes,
+    pub origin: Bytes,
 }
 
 impl HierPart {

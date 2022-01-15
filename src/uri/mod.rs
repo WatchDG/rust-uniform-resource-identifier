@@ -13,17 +13,62 @@ pub use scheme::Scheme;
 
 use crate::UriError;
 
-pub struct Uri(Bytes);
+pub struct Uri {
+    pub origin: Bytes,
+}
 
 impl Uri {
     #[inline]
     pub fn bytes(&self) -> Bytes {
-        self.0.clone()
+        self.origin.clone()
     }
 
     #[inline]
     pub fn from_bytes(input: Bytes) -> Self {
-        Self(input)
+        Self { origin: input }
+    }
+
+    #[inline]
+    pub fn from_slice(input: &[u8]) -> Self {
+        let bytes = Bytes::copy_from_slice(input);
+        Self { origin: bytes }
+    }
+}
+
+#[cfg(test)]
+mod tests_uri {
+    use crate::Uri;
+    use bytes::Bytes;
+
+    #[test]
+    fn test_bytes() {
+        let uri = Uri::from_bytes(Bytes::from_static(
+            b"foo://example.com:8042/over/there?name=ferret#nose",
+        ));
+        assert_eq!(
+            uri.bytes(),
+            Bytes::from_static(b"foo://example.com:8042/over/there?name=ferret#nose")
+        );
+    }
+
+    #[test]
+    fn test_from_bytes() {
+        let uri = Uri::from_bytes(Bytes::from_static(
+            b"foo://example.com:8042/over/there?name=ferret#nose",
+        ));
+        assert_eq!(
+            uri.origin,
+            Bytes::from_static(b"foo://example.com:8042/over/there?name=ferret#nose")
+        );
+    }
+
+    #[test]
+    fn test_from_slice() {
+        let uri = Uri::from_slice(b"foo://example.com:8042/over/there?name=ferret#nose");
+        assert_eq!(
+            uri.origin,
+            Bytes::from_static(b"foo://example.com:8042/over/there?name=ferret#nose")
+        );
     }
 }
 

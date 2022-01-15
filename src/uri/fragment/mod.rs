@@ -4,7 +4,7 @@ use crate::UriError;
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Fragment {
-    origin: Bytes,
+    pub origin: Bytes,
 }
 
 impl Fragment {
