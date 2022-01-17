@@ -2,7 +2,7 @@ mod macros;
 mod uri;
 mod utils;
 
-pub use uri::{Fragment, HierPart, Query, Scheme, Uri, UriBuilder};
+pub use uri::{Authority, Fragment, HierPart, Path, Query, Scheme, Uri, UriBuilder};
 
 #[derive(Debug)]
 pub enum UriError {

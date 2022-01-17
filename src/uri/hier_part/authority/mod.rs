@@ -2,8 +2,13 @@ use bytes::Bytes;
 
 use crate::UriError;
 
+mod host;
+
+pub use host::Host;
+
+#[derive(Debug, Clone, PartialEq)]
 pub struct Authority {
-    origin: Bytes,
+    pub origin: Bytes,
 }
 
 impl Authority {
@@ -34,41 +39,35 @@ impl Authority {
     }
 }
 
-// use std::error::Error;
+#[cfg(test)]
+pub mod tests_authority {
+    use crate::Authority;
+    use bytes::Bytes;
 
-// pub mod host;
-// pub mod port;
-// pub mod userinfo;
+    #[test]
+    fn test_bytes() {
+        let authority = Authority::from_bytes(Bytes::from_static(b"example.com"));
+        assert_eq!(authority.bytes(), Bytes::from_static(b"example.com"))
+    }
 
-// pub use host::Host;
-// pub use port::Port;
-// pub use userinfo::Userinfo;
+    #[test]
+    fn test_from_bytes() {
+        let authority = Authority::from_bytes(Bytes::from_static(b"example.com"));
+        assert_eq!(authority.origin, Bytes::from_static(b"example.com"))
+    }
 
-// #[derive(Debug, Clone, PartialEq)]
-// pub struct Authority {
-// pub userinfo: Option<Userinfo>,
-// pub host: Host,
-// pub port: Option<Port>,
-// }
+    #[test]
+    fn test_from_slice() {
+        let authority = Authority::from_slice(b"example.com");
+        assert_eq!(authority.origin, Bytes::from_static(b"example.com"))
+    }
 
-// pub fn parse_authority(
-//     input: &[u8],
-//     start: &mut usize,
-//     end: &usize,
-// ) -> Result<Authority, Box<dyn Error>> {
-//     let mut index = *start;
-
-//     let userinfo = userinfo::parse_userinfo(input, &mut index, end)?;
-
-//     let host = host::parse_host(input, &mut index, end)?;
-
-//     let port = port::parse_port(input, &mut index, end)?;
-
-//     *start = index;
-
-//     Ok(Authority {
-//         userinfo,
-//         host,
-//         port,
-//     })
-// }
+    #[test]
+    fn test_parse() {
+        let string = "foo://example.com:8042/over/there?name=ferret#nose";
+        let mut cursor = 6;
+        let authority = Authority::parse(string.as_bytes(), &mut cursor, &string.len()).unwrap();
+        assert_eq!(authority.bytes(), Bytes::from_static(b"example.com:8042"));
+        assert_eq!(cursor, 22);
+    }
+}

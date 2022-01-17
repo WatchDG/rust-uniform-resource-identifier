@@ -7,12 +7,13 @@ mod query;
 mod scheme;
 
 pub use fragment::Fragment;
-pub use hier_part::HierPart;
+pub use hier_part::{Authority, HierPart, Path};
 pub use query::Query;
 pub use scheme::Scheme;
 
 use crate::UriError;
 
+#[derive(Debug, Clone, PartialEq)]
 pub struct Uri {
     pub origin: Bytes,
 }
@@ -161,13 +162,13 @@ mod tests_uri_builder {
         let mut cursor = 0;
         let uri_builder = UriBuilder::parse(string.as_bytes(), &mut cursor, &string.len()).unwrap();
 
-        let mut referance_uri_builder = UriBuilder::new();
-        referance_uri_builder.scheme(Scheme::from_slice(b"foo:"));
-        referance_uri_builder.hier_part(HierPart::from_slice(b"//example.com:8042/over/there"));
-        referance_uri_builder.query(Query::from_slice(b"?name=ferret"));
-        referance_uri_builder.fragment(Fragment::from_slice(b"#nose"));
+        let mut reference_uri_builder = UriBuilder::new();
+        reference_uri_builder.scheme(Scheme::from_slice(b"foo:"));
+        reference_uri_builder.hier_part(HierPart::from_slice(b"//example.com:8042/over/there"));
+        reference_uri_builder.query(Query::from_slice(b"?name=ferret"));
+        reference_uri_builder.fragment(Fragment::from_slice(b"#nose"));
 
-        assert_eq!(uri_builder, referance_uri_builder);
+        assert_eq!(uri_builder, reference_uri_builder);
         assert_eq!(cursor, 50);
     }
 
