@@ -1,12 +1,11 @@
 use bytes::{BufMut, Bytes, BytesMut};
 
 use crate::grammar::{
-    find_query_or_fragment, parse_path_abempty, parse_path_absolute, parse_path_noscheme,
-    parse_path_rootless,
+    parse_path_abempty, parse_path_absolute, parse_path_noscheme, parse_path_rootless,
 };
 use crate::UriError;
 
-use self::authority::{authority_wire_len, parse_authority, validate_host, write_authority};
+use self::authority::{authority_wire_len, parse_authority_until, validate_host, write_authority};
 
 mod authority;
 mod path;
@@ -47,6 +46,7 @@ impl HierPart {
     }
 }
 
+#[inline]
 pub(crate) fn parse_hier(
     input: &Bytes,
     cursor: &mut usize,
@@ -58,36 +58,33 @@ pub(crate) fn parse_hier(
     }
     let bytes = input.as_ref();
     let start = *cursor;
-    let limit = find_query_or_fragment(bytes, start, end);
 
-    if start + 1 < limit && bytes[start] == b'/' && bytes[start + 1] == b'/' {
-        let auth_start = start + 2;
-        let mut auth_end = auth_start;
-        while auth_end < limit && bytes[auth_end] != b'/' {
-            auth_end += 1;
-        }
-        let authority = parse_authority(input, auth_start, auth_end)?;
-        let path_end = parse_path_abempty(bytes, auth_end, limit)?;
-        if path_end != limit {
-            return Err(UriError::InvalidPath);
-        }
-        *cursor = limit;
+    if start >= end || bytes[start] == b'?' || bytes[start] == b'#' {
+        let empty = input.slice(start..start);
         return Ok(HierPart {
-            origin: input.slice(start..limit),
+            origin: empty.clone(),
+            authority: None,
+            path: Path { origin: empty },
+        });
+    }
+
+    if start + 1 < end && bytes[start] == b'/' && bytes[start + 1] == b'/' {
+        let (authority, auth_end) = parse_authority_until(input, start + 2, end)?;
+        let path_end = parse_path_abempty(bytes, auth_end, end)?;
+        *cursor = path_end;
+        return Ok(HierPart {
+            origin: input.slice(start..path_end),
             authority: Some(authority),
             path: Path {
-                origin: input.slice(auth_end..limit),
+                origin: input.slice(auth_end..path_end),
             },
         });
     }
 
-    if start < limit && bytes[start] == b'/' {
-        let path_end = parse_path_absolute(bytes, start, limit)?;
-        if path_end != limit {
-            return Err(UriError::InvalidPath);
-        }
-        *cursor = limit;
-        let path = input.slice(start..limit);
+    if bytes[start] == b'/' {
+        let path_end = parse_path_absolute(bytes, start, end)?;
+        *cursor = path_end;
+        let path = input.slice(start..path_end);
         return Ok(HierPart {
             origin: path.clone(),
             authority: None,
@@ -95,29 +92,17 @@ pub(crate) fn parse_hier(
         });
     }
 
-    if start < limit {
-        let path_end = if has_scheme {
-            parse_path_rootless(bytes, start, limit)?
-        } else {
-            parse_path_noscheme(bytes, start, limit)?
-        };
-        if path_end != limit {
-            return Err(UriError::InvalidPath);
-        }
-        *cursor = limit;
-        let path = input.slice(start..limit);
-        return Ok(HierPart {
-            origin: path.clone(),
-            authority: None,
-            path: Path { origin: path },
-        });
-    }
-
-    let empty = input.slice(start..start);
+    let path_end = if has_scheme {
+        parse_path_rootless(bytes, start, end)?
+    } else {
+        parse_path_noscheme(bytes, start, end)?
+    };
+    *cursor = path_end;
+    let path = input.slice(start..path_end);
     Ok(HierPart {
-        origin: empty.clone(),
+        origin: path.clone(),
         authority: None,
-        path: Path { origin: empty },
+        path: Path { origin: path },
     })
 }
 

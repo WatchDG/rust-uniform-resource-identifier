@@ -6,13 +6,28 @@ use uniform_resource_identifier::{
 };
 
 const EXAMPLE: &[u8] = b"foo://example.com:8042/over/there?name=ferret#nose";
+const USERINFO_PCT: &[u8] = b"http://user:pass%20x@example.com:8080/a%20b?q=1#f";
+const IPV6: &[u8] = b"http://[2001:db8::1]:8080/path?q=1#f";
 const UNRESERVED: &[u8] = b"abc-._~";
 const PATH_RAW: &[u8] = b"a b/c";
 const PCT: &[u8] = b"a%20b%2f";
 const PAIRS: &[u8] = b"name=ferret&x=1";
 
+fn long_uri() -> Vec<u8> {
+    let mut uri = Vec::with_capacity(2200);
+    uri.extend_from_slice(b"http://example.com/");
+    while uri.len() < 2048 {
+        uri.extend_from_slice(b"segment/");
+    }
+    uri.extend_from_slice(b"?name=ferret#nose");
+    uri
+}
+
 fn bench_parse(c: &mut Criterion) {
     let input = Bytes::from_static(EXAMPLE);
+    let long = Bytes::from(long_uri());
+    let userinfo = Bytes::from_static(USERINFO_PCT);
+    let ipv6 = Bytes::from_static(IPV6);
     let mut group = c.benchmark_group("parse");
     group.throughput(Throughput::Bytes(input.len() as u64));
     group.bench_function("parse", |b| {
@@ -20,6 +35,18 @@ fn bench_parse(c: &mut Criterion) {
     });
     group.bench_function("parse_slice", |b| {
         b.iter(|| black_box(Uri::parse_slice(black_box(EXAMPLE)).unwrap()))
+    });
+    group.throughput(Throughput::Bytes(long.len() as u64));
+    group.bench_function("parse_long", |b| {
+        b.iter(|| black_box(Uri::parse(black_box(long.clone())).unwrap()))
+    });
+    group.throughput(Throughput::Bytes(userinfo.len() as u64));
+    group.bench_function("parse_userinfo", |b| {
+        b.iter(|| black_box(Uri::parse(black_box(userinfo.clone())).unwrap()))
+    });
+    group.throughput(Throughput::Bytes(ipv6.len() as u64));
+    group.bench_function("parse_ipv6", |b| {
+        b.iter(|| black_box(Uri::parse(black_box(ipv6.clone())).unwrap()))
     });
     group.finish();
 }

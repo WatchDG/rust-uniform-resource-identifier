@@ -13,6 +13,7 @@ pub(crate) fn consume_pct(input: &[u8], index: usize, end: usize) -> Result<usiz
 }
 
 /// Consume `pct-encoded` or bytes in `set`. Stops before the first other byte.
+#[inline]
 pub(crate) fn scan_allowed(
     input: &[u8],
     mut index: usize,
@@ -31,6 +32,7 @@ pub(crate) fn scan_allowed(
     Ok(index)
 }
 
+#[inline]
 fn expect_allowed(input: &[u8], set: EncodeSet, err: UriError) -> Result<(), UriError> {
     match scan_allowed(input, 0, input.len(), set) {
         Ok(end) if end == input.len() => Ok(()),
@@ -65,10 +67,12 @@ pub(crate) fn validate_port(input: &[u8]) -> Result<(), UriError> {
     }
 }
 
+#[inline]
 pub(crate) fn validate_query(input: &[u8]) -> Result<(), UriError> {
     expect_allowed(input, EncodeSet::QUERY, UriError::InvalidQuery)
 }
 
+#[inline]
 pub(crate) fn validate_fragment(input: &[u8]) -> Result<(), UriError> {
     expect_allowed(input, EncodeSet::FRAGMENT, UriError::InvalidFragment)
 }
@@ -90,6 +94,7 @@ pub(crate) fn validate_path_value(input: &[u8]) -> Result<(), UriError> {
 }
 
 /// Index of `:` when `input` starts with a scheme. `None` when it is a relative reference.
+#[inline]
 pub(crate) fn scheme_colon(input: &[u8]) -> Option<usize> {
     if input.is_empty() || !EncodeSet::ALPHA.contains(input[0]) {
         return None;
@@ -103,28 +108,6 @@ pub(crate) fn scheme_colon(input: &[u8]) -> Option<usize> {
     } else {
         None
     }
-}
-
-pub(crate) fn find_query_or_fragment(input: &[u8], start: usize, end: usize) -> usize {
-    let mut index = start;
-    while index < end && input[index] != b'?' && input[index] != b'#' {
-        index += 1;
-    }
-    index
-}
-
-pub(crate) fn find_at(input: &[u8], start: usize, end: usize) -> Result<Option<usize>, UriError> {
-    let mut index = start;
-    while index < end {
-        if input[index] == b'%' {
-            index = consume_pct(input, index, end)?;
-        } else if input[index] == b'@' {
-            return Ok(Some(index));
-        } else {
-            index += 1;
-        }
-    }
-    Ok(None)
 }
 
 pub(crate) fn is_ipv4(input: &[u8]) -> bool {
@@ -147,7 +130,8 @@ pub(crate) fn is_ipv4(input: &[u8]) -> bool {
     parts == 3 && is_dec_octet(&input[start..])
 }
 
-fn is_dec_octet(input: &[u8]) -> bool {
+#[inline]
+pub(crate) fn is_dec_octet(input: &[u8]) -> bool {
     match input {
         [digit] if digit.is_ascii_digit() => true,
         [tens, ones] if (b'1'..=b'9').contains(tens) && ones.is_ascii_digit() => true,
@@ -282,18 +266,6 @@ pub(crate) fn classify_unbracketed(input: &[u8]) -> Result<UnbracketedHost, UriE
     }
 }
 
-/// Host text that sits between `[` and `]` in an authority.
-pub(crate) fn classify_reg_host(input: &[u8]) -> Result<UnbracketedHost, UriError> {
-    if is_ipv4(input) {
-        return Ok(UnbracketedHost::Ipv4);
-    }
-    match scan_allowed(input, 0, input.len(), EncodeSet::REG_NAME) {
-        Ok(end) if end == input.len() => Ok(UnbracketedHost::RegName),
-        Err(error) => Err(error),
-        Ok(_) => Err(UriError::InvalidHost),
-    }
-}
-
 pub(crate) enum IpLiteral {
     Ipv6,
     IpvFuture,
@@ -313,24 +285,37 @@ pub(crate) fn classify_ip_literal(input: &[u8]) -> Result<IpLiteral, UriError> {
     }
 }
 
+#[inline]
+fn is_qf(byte: u8) -> bool {
+    byte == b'?' || byte == b'#'
+}
+
+#[inline]
 pub(crate) fn parse_path_abempty(
     input: &[u8],
     mut index: usize,
     end: usize,
 ) -> Result<usize, UriError> {
     while index < end {
+        if is_qf(input[index]) {
+            return Ok(index);
+        }
         if input[index] != b'/' {
             return Err(UriError::InvalidPath);
         }
         index += 1;
         index = scan_allowed(input, index, end, EncodeSet::SEGMENT)?;
         if index < end && input[index] != b'/' {
+            if is_qf(input[index]) {
+                return Ok(index);
+            }
             return Err(UriError::InvalidPath);
         }
     }
     Ok(index)
 }
 
+#[inline]
 pub(crate) fn parse_path_absolute(
     input: &[u8],
     mut index: usize,
@@ -340,7 +325,7 @@ pub(crate) fn parse_path_absolute(
         return Err(UriError::InvalidPath);
     }
     index += 1;
-    if index == end {
+    if index == end || is_qf(input[index]) {
         return Ok(index);
     }
     let segment_start = index;
@@ -348,22 +333,10 @@ pub(crate) fn parse_path_absolute(
     if index == segment_start {
         return Err(UriError::InvalidPath);
     }
-    if index < end && input[index] != b'/' {
-        return Err(UriError::InvalidPath);
-    }
-    while index < end {
-        if input[index] != b'/' {
-            return Err(UriError::InvalidPath);
-        }
-        index += 1;
-        index = scan_allowed(input, index, end, EncodeSet::SEGMENT)?;
-        if index < end && input[index] != b'/' {
-            return Err(UriError::InvalidPath);
-        }
-    }
-    Ok(index)
+    finish_path_segments(input, index, end)
 }
 
+#[inline]
 pub(crate) fn parse_path_rootless(
     input: &[u8],
     mut index: usize,
@@ -377,6 +350,7 @@ pub(crate) fn parse_path_rootless(
     finish_path_segments(input, index, end)
 }
 
+#[inline]
 pub(crate) fn parse_path_noscheme(
     input: &[u8],
     mut index: usize,
@@ -384,23 +358,36 @@ pub(crate) fn parse_path_noscheme(
 ) -> Result<usize, UriError> {
     let start = index;
     index = scan_allowed(input, index, end, EncodeSet::SEGMENT_NC)?;
-    if index == start || (index < end && input[index] != b'/') {
+    if index == start {
+        return Err(UriError::InvalidPath);
+    }
+    if index < end && input[index] != b'/' && !is_qf(input[index]) {
         return Err(UriError::InvalidPath);
     }
     finish_path_segments(input, index, end)
 }
 
+#[inline]
 fn finish_path_segments(input: &[u8], mut index: usize, end: usize) -> Result<usize, UriError> {
     if index < end && input[index] != b'/' {
+        if is_qf(input[index]) {
+            return Ok(index);
+        }
         return Err(UriError::InvalidPath);
     }
     while index < end {
+        if is_qf(input[index]) {
+            return Ok(index);
+        }
         if input[index] != b'/' {
             return Err(UriError::InvalidPath);
         }
         index += 1;
         index = scan_allowed(input, index, end, EncodeSet::SEGMENT)?;
         if index < end && input[index] != b'/' {
+            if is_qf(input[index]) {
+                return Ok(index);
+            }
             return Err(UriError::InvalidPath);
         }
     }

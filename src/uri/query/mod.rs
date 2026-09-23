@@ -1,7 +1,7 @@
 use bytes::{BufMut, Bytes, BytesMut};
 
 use crate::charset::EncodeSet;
-use crate::grammar::validate_query;
+use crate::grammar::{consume_pct, validate_query};
 use crate::pct::{encode_into, encoded_len};
 use crate::UriError;
 
@@ -27,16 +27,27 @@ impl Query {
         Self::from_bytes(Bytes::copy_from_slice(input))
     }
 
+    #[inline]
     pub fn parse(input: &Bytes, start: &mut usize, end: usize) -> Result<Self, UriError> {
         if *start >= end || end > input.len() || input[*start] != b'?' {
             return Err(UriError::InvalidQuery);
         }
         *start += 1;
         let from = *start;
-        while *start < end && input[*start] != b'#' {
-            *start += 1;
+        let bytes = input.as_ref();
+        while *start < end {
+            let byte = bytes[*start];
+            if byte == b'#' {
+                break;
+            }
+            if byte == b'%' {
+                *start = consume_pct(bytes, *start, end)?;
+            } else if EncodeSet::QUERY.contains(byte) {
+                *start += 1;
+            } else {
+                return Err(UriError::InvalidQuery);
+            }
         }
-        validate_query(&input[from..*start])?;
         Ok(Self {
             origin: input.slice(from..*start),
         })

@@ -148,6 +148,52 @@ fn userinfo_ipv6_roundtrip() {
 }
 
 #[test]
+fn pct_in_port_follows_find_at() {
+    assert_eq!(
+        Uri::parse_slice(b"http://host:%ZZ")
+            .unwrap_err()
+            .to_string(),
+        "Invalid percent-encoding."
+    );
+    assert_eq!(
+        Uri::parse_slice(b"http://host:%31")
+            .unwrap_err()
+            .to_string(),
+        "Invalid port."
+    );
+    assert_eq!(
+        Uri::parse_slice(b"http://user@host:%ZZ")
+            .unwrap_err()
+            .to_string(),
+        "Invalid port."
+    );
+    assert_eq!(
+        Uri::parse_slice(b"http://[%ZZ]/").unwrap_err().to_string(),
+        "Invalid percent-encoding."
+    );
+    assert_eq!(
+        Uri::parse_slice(b"http://user@[%ZZ]/")
+            .unwrap_err()
+            .to_string(),
+        "Invalid host."
+    );
+    assert_eq!(
+        Uri::parse_slice(b"http://[::1]@host")
+            .unwrap_err()
+            .to_string(),
+        "Invalid userinfo."
+    );
+    assert_eq!(
+        Uri::parse_slice(b"http://a b").unwrap_err().to_string(),
+        "Invalid host."
+    );
+    assert_eq!(
+        Uri::parse_slice(b"http://a b@h").unwrap_err().to_string(),
+        "Invalid userinfo."
+    );
+}
+
+#[test]
 fn rejects_invalid_references() {
     assert!(Uri::parse_slice(b"http://example.com/%").is_err());
     assert!(Uri::parse_slice(b"http://example.com/%2").is_err());

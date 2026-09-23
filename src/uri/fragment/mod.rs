@@ -25,6 +25,7 @@ impl Fragment {
         Self::from_bytes(Bytes::copy_from_slice(input))
     }
 
+    #[inline]
     pub fn parse(input: &Bytes, start: &mut usize, end: usize) -> Result<Self, UriError> {
         if *start >= end || end > input.len() || input[*start] != b'#' {
             return Err(UriError::InvalidFragment);
