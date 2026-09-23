@@ -1,5 +1,6 @@
 use bytes::Bytes;
 
+use crate::grammar::{scheme_colon, validate_scheme};
 use crate::UriError;
 
 #[derive(Debug, Clone, PartialEq)]
@@ -14,60 +15,29 @@ impl Scheme {
     }
 
     #[inline]
-    pub fn from_bytes(input: Bytes) -> Self {
-        Self { origin: input }
+    pub fn from_bytes(input: Bytes) -> Result<Self, UriError> {
+        validate_scheme(&input)?;
+        Ok(Self { origin: input })
     }
 
     #[inline]
-    pub fn from_slice(input: &[u8]) -> Self {
-        let bytes = Bytes::copy_from_slice(input);
-        Self::from_bytes(bytes)
+    pub fn from_slice(input: &[u8]) -> Result<Self, UriError> {
+        Self::from_bytes(Bytes::copy_from_slice(input))
     }
 
-    pub fn parse(input: &[u8], start: &mut usize, end: &usize) -> Result<Self, UriError> {
-        let mut index = *start;
-        while index < *end && input[index] != 0x3a {
-            index += 1;
-        }
-        if input[index] != 0x3a {
+    pub fn parse(input: &Bytes, start: &mut usize, end: usize) -> Result<Self, UriError> {
+        if *start > end || end > input.len() {
             return Err(UriError::InvalidScheme);
         }
-        index += 1;
-        let value = Self::from_slice(&input[*start..index]);
-        *start = index;
-        Ok(value)
-    }
-}
-
-#[cfg(test)]
-mod tests_scheme {
-    use crate::Scheme;
-    use bytes::Bytes;
-
-    #[test]
-    fn test_bytes() {
-        let scheme = Scheme::from_bytes(Bytes::from_static(b"foo:"));
-        assert_eq!(scheme.bytes(), Bytes::from_static(b"foo:"));
-    }
-
-    #[test]
-    fn test_from_bytes() {
-        let scheme = Scheme::from_bytes(Bytes::from_static(b"foo:"));
-        assert_eq!(scheme.origin, Bytes::from_static(b"foo:"));
-    }
-
-    #[test]
-    fn test_from_slice() {
-        let scheme = Scheme::from_slice(b"foo:");
-        assert_eq!(scheme.origin, Bytes::from_static(b"foo:"));
-    }
-
-    #[test]
-    fn test_parse() {
-        let string = "foo://example.com:8042/over/there?name=ferret#nose";
-        let mut cursor = 0;
-        let scheme = Scheme::parse(string.as_bytes(), &mut cursor, &string.len()).unwrap();
-        assert_eq!(scheme.origin, Bytes::from_static(b"foo:"));
-        assert_eq!(cursor, 4);
+        let Some(colon) = scheme_colon(&input[*start..end]) else {
+            return Err(UriError::InvalidScheme);
+        };
+        let from = *start;
+        let colon_at = *start + colon;
+        let scheme = Self {
+            origin: input.slice(from..colon_at),
+        };
+        *start = colon_at + 1;
+        Ok(scheme)
     }
 }

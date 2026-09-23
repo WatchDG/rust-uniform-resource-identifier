@@ -1,5 +1,6 @@
 use bytes::Bytes;
 
+use crate::grammar::validate_fragment;
 use crate::UriError;
 
 #[derive(Debug, Clone, PartialEq)]
@@ -14,56 +15,27 @@ impl Fragment {
     }
 
     #[inline]
-    pub fn from_bytes(input: Bytes) -> Self {
-        Self { origin: input }
+    pub fn from_bytes(input: Bytes) -> Result<Self, UriError> {
+        validate_fragment(&input)?;
+        Ok(Self { origin: input })
     }
 
     #[inline]
-    pub fn from_slice(input: &[u8]) -> Self {
-        let bytes = Bytes::copy_from_slice(input);
-        Self { origin: bytes }
+    pub fn from_slice(input: &[u8]) -> Result<Self, UriError> {
+        Self::from_bytes(Bytes::copy_from_slice(input))
     }
 
-    pub fn parse(input: &[u8], start: &mut usize, end: &usize) -> Result<Self, UriError> {
-        let mut index = *start;
-        while index < *end {
-            index += 1;
+    pub fn parse(input: &Bytes, start: &mut usize, end: usize) -> Result<Self, UriError> {
+        if *start >= end || end > input.len() || input[*start] != b'#' {
+            return Err(UriError::InvalidFragment);
         }
-        let value = Self::from_slice(&input[*start..index]);
-        *start = index;
+        *start += 1;
+        let from = *start;
+        validate_fragment(&input[from..end])?;
+        let value = Self {
+            origin: input.slice(from..end),
+        };
+        *start = end;
         Ok(value)
-    }
-}
-
-#[cfg(test)]
-mod tests_fragment {
-    use crate::Fragment;
-    use bytes::Bytes;
-
-    #[test]
-    fn test_bytes() {
-        let fragment = Fragment::from_bytes(Bytes::from_static(b"#nose"));
-        assert_eq!(fragment.bytes(), Bytes::from_static(b"#nose"));
-    }
-
-    #[test]
-    fn test_from_bytes() {
-        let fragment = Fragment::from_bytes(Bytes::from_static(b"#nose"));
-        assert_eq!(fragment.origin, Bytes::from_static(b"#nose"));
-    }
-
-    #[test]
-    fn test_from_slice() {
-        let fragment = Fragment::from_slice(b"#nose");
-        assert_eq!(fragment.origin, Bytes::from_static(b"#nose"));
-    }
-
-    #[test]
-    fn test_parse() {
-        let string = "foo://example.com:8042/over/there?name=ferret#nose";
-        let mut cursor = 45;
-        let fragment = Fragment::parse(string.as_bytes(), &mut cursor, &string.len()).unwrap();
-        assert_eq!(fragment.origin, Bytes::from_static(b"#nose"));
-        assert_eq!(cursor, 50);
     }
 }

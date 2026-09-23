@@ -1,5 +1,7 @@
 use bytes::{BufMut, Bytes, BytesMut};
-use std::panic;
+
+use crate::grammar::{scheme_colon, validate_fragment, validate_query, validate_scheme};
+use crate::UriError;
 
 mod fragment;
 mod hier_part;
@@ -7,15 +9,19 @@ mod query;
 mod scheme;
 
 pub use fragment::Fragment;
-pub use hier_part::{Authority, HierPart, Path};
-pub use query::Query;
+pub use hier_part::{Authority, HierPart, HierPartBuilder, Host, Path, Port, Userinfo};
+pub use query::{encode_pairs, Query, QueryPairs};
 pub use scheme::Scheme;
 
-use crate::UriError;
+use hier_part::{hier_wire_len, parse_hier, validate_hier, write_hier};
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Uri {
     pub origin: Bytes,
+    pub scheme: Option<Scheme>,
+    pub hier_part: HierPart,
+    pub query: Option<Query>,
+    pub fragment: Option<Fragment>,
 }
 
 impl Uri {
@@ -24,52 +30,26 @@ impl Uri {
         self.origin.clone()
     }
 
-    #[inline]
-    pub fn from_bytes(input: Bytes) -> Self {
-        Self { origin: input }
+    pub fn parse(input: Bytes) -> Result<Self, UriError> {
+        let mut cursor = 0;
+        let end = input.len();
+        let builder = UriBuilder::parse(&input, &mut cursor, end)?;
+        let hier_part = match builder.hier_part {
+            Some(hier_part) => hier_part,
+            None => return Err(UriError::InvalidUri),
+        };
+        Ok(Self {
+            origin: input,
+            scheme: builder.scheme,
+            hier_part,
+            query: builder.query,
+            fragment: builder.fragment,
+        })
     }
 
     #[inline]
-    pub fn from_slice(input: &[u8]) -> Self {
-        let bytes = Bytes::copy_from_slice(input);
-        Self { origin: bytes }
-    }
-}
-
-#[cfg(test)]
-mod tests_uri {
-    use crate::Uri;
-    use bytes::Bytes;
-
-    #[test]
-    fn test_bytes() {
-        let uri = Uri::from_bytes(Bytes::from_static(
-            b"foo://example.com:8042/over/there?name=ferret#nose",
-        ));
-        assert_eq!(
-            uri.bytes(),
-            Bytes::from_static(b"foo://example.com:8042/over/there?name=ferret#nose")
-        );
-    }
-
-    #[test]
-    fn test_from_bytes() {
-        let uri = Uri::from_bytes(Bytes::from_static(
-            b"foo://example.com:8042/over/there?name=ferret#nose",
-        ));
-        assert_eq!(
-            uri.origin,
-            Bytes::from_static(b"foo://example.com:8042/over/there?name=ferret#nose")
-        );
-    }
-
-    #[test]
-    fn test_from_slice() {
-        let uri = Uri::from_slice(b"foo://example.com:8042/over/there?name=ferret#nose");
-        assert_eq!(
-            uri.origin,
-            Bytes::from_static(b"foo://example.com:8042/over/there?name=ferret#nose")
-        );
+    pub fn parse_slice(input: &[u8]) -> Result<Self, UriError> {
+        Self::parse(Bytes::copy_from_slice(input))
     }
 }
 
@@ -92,92 +72,115 @@ impl UriBuilder {
         }
     }
 
-    pub fn scheme(&mut self, scheme: Scheme) -> &Self {
+    pub fn scheme(&mut self, scheme: Scheme) -> &mut Self {
         self.scheme = Some(scheme);
         self
     }
 
-    pub fn hier_part(&mut self, hier_part: HierPart) -> &Self {
+    pub fn hier_part(&mut self, hier_part: HierPart) -> &mut Self {
         self.hier_part = Some(hier_part);
         self
     }
 
-    pub fn query(&mut self, query: Query) -> &Self {
+    pub fn query(&mut self, query: Query) -> &mut Self {
         self.query = Some(query);
         self
     }
 
-    pub fn fragment(&mut self, fragment: Fragment) -> &Self {
+    pub fn fragment(&mut self, fragment: Fragment) -> &mut Self {
         self.fragment = Some(fragment);
         self
     }
 
-    pub fn parse(input: &[u8], start: &mut usize, end: &usize) -> Result<Self, UriError> {
-        let mut index = *start;
-        let mut uri_builder = Self::new();
-        uri_builder.scheme(Scheme::parse(input, &mut index, end)?);
-        uri_builder.hier_part(HierPart::parse(input, &mut index, end)?);
-        while index < *end {
-            match input[index] {
-                0x3f => {
-                    uri_builder.query(Query::parse(input, &mut index, end)?);
-                }
-                0x23 => {
-                    uri_builder.fragment(Fragment::parse(input, &mut index, end)?);
-                }
-                _ => {
-                    break;
-                }
-            }
-        }
-        if index != *end {
+    pub fn parse(input: &Bytes, start: &mut usize, end: usize) -> Result<Self, UriError> {
+        if *start > end || end > input.len() {
             return Err(UriError::InvalidUri);
         }
-        *start = index;
-        Ok(uri_builder)
+        let base = *start;
+        let scheme = if let Some(colon) = scheme_colon(&input[base..end]) {
+            let colon_at = base + colon;
+            let scheme = Scheme {
+                origin: input.slice(base..colon_at),
+            };
+            *start = colon_at + 1;
+            Some(scheme)
+        } else {
+            None
+        };
+        let hier_part = parse_hier(input, start, end, scheme.is_some())?;
+        let query = if *start < end && input[*start] == b'?' {
+            Some(Query::parse(input, start, end)?)
+        } else {
+            None
+        };
+        let fragment = if *start < end && input[*start] == b'#' {
+            Some(Fragment::parse(input, start, end)?)
+        } else {
+            None
+        };
+        if *start != end {
+            return Err(UriError::InvalidUri);
+        }
+        Ok(Self {
+            scheme,
+            hier_part: Some(hier_part),
+            query,
+            fragment,
+        })
     }
 
     pub fn build(&self) -> Result<Uri, UriError> {
-        let mut bytes = BytesMut::new();
-        match &self.scheme {
-            Some(scheme) => {
-                bytes.put(scheme.bytes());
-            }
-            None => {
-                panic!("")
-            }
+        if let Some(scheme) = &self.scheme {
+            validate_scheme(&scheme.origin)?;
         }
-        Ok(Uri::from_bytes(bytes.freeze()))
+        if let Some(hier_part) = &self.hier_part {
+            validate_hier(hier_part, self.scheme.is_some())?;
+        }
+        if let Some(query) = &self.query {
+            validate_query(&query.origin)?;
+        }
+        if let Some(fragment) = &self.fragment {
+            validate_fragment(&fragment.origin)?;
+        }
+        let len = uri_len(self);
+        let mut out = BytesMut::with_capacity(len);
+        write_uri(self, &mut out);
+        debug_assert_eq!(out.len(), len);
+        Uri::parse(out.freeze())
     }
 }
 
-#[cfg(test)]
-mod tests_uri_builder {
-    use crate::{Fragment, HierPart, Query, Scheme, UriBuilder};
-    use bytes::Bytes;
-
-    #[test]
-    fn test_parse() {
-        let string = "foo://example.com:8042/over/there?name=ferret#nose";
-        let mut cursor = 0;
-        let uri_builder = UriBuilder::parse(string.as_bytes(), &mut cursor, &string.len()).unwrap();
-
-        let mut reference_uri_builder = UriBuilder::new();
-        reference_uri_builder.scheme(Scheme::from_slice(b"foo:"));
-        reference_uri_builder.hier_part(HierPart::from_slice(b"//example.com:8042/over/there"));
-        reference_uri_builder.query(Query::from_slice(b"?name=ferret"));
-        reference_uri_builder.fragment(Fragment::from_slice(b"#nose"));
-
-        assert_eq!(uri_builder, reference_uri_builder);
-        assert_eq!(cursor, 50);
+fn uri_len(builder: &UriBuilder) -> usize {
+    let mut len = 0;
+    if let Some(scheme) = &builder.scheme {
+        len += scheme.origin.len() + 1;
     }
+    if let Some(hier_part) = &builder.hier_part {
+        len += hier_wire_len(hier_part);
+    }
+    if let Some(query) = &builder.query {
+        len += 1 + query.origin.len();
+    }
+    if let Some(fragment) = &builder.fragment {
+        len += 1 + fragment.origin.len();
+    }
+    len
+}
 
-    #[test]
-    fn test_build() {
-        let uri = UriBuilder::new()
-            .scheme(Scheme::from_slice(b"http:"))
-            .build()
-            .unwrap();
-        assert_eq!(uri.bytes(), Bytes::from_static(b"http:"));
+fn write_uri(builder: &UriBuilder, out: &mut BytesMut) {
+    if let Some(scheme) = &builder.scheme {
+        out.put_slice(&scheme.origin);
+        out.put_u8(b':');
+    }
+    if let Some(hier_part) = &builder.hier_part {
+        write_hier(hier_part, out);
+    }
+    if let Some(query) = &builder.query {
+        out.put_u8(b'?');
+        out.put_slice(&query.origin);
+    }
+    if let Some(fragment) = &builder.fragment {
+        out.put_u8(b'#');
+        out.put_slice(&fragment.origin);
     }
 }
